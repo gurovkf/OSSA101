@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Платёж после ОСС</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>html,body{margin:0;padding:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow column — ввод сверху, список услуг-вопросов, липкий итог снизу */
+:root{
+  --bg:#eef1f4; --surface:#ffffff; --surface-2:#f7f9fb;
+  --ink:#141d26; --muted:#5d6e7d; --line:#d9e1e8;
+  --accent:#0d5b66; --accent-soft:#dceef0; --accent-ink:#0d5b66;
+  --warn:#8a4f12; --warn-soft:#fbeeda;
+  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --body:"Golos Text",system-ui,-apple-system,Segoe UI,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d1218; --surface:#161f28; --surface-2:#1c272f;
+  --ink:#e6edf3; --muted:#92a3b1; --line:#27343d;
+  --accent:#5ccad6; --accent-soft:#113136; --accent-ink:#9fe3eb;
+  --warn:#e2a567; --warn-soft:#2e2316;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0d1218; --surface:#161f28; --surface-2:#1c272f;
+  --ink:#e6edf3; --muted:#92a3b1; --line:#27343d;
+  --accent:#5ccad6; --accent-soft:#113136; --accent-ink:#9fe3eb;
+  --warn:#e2a567; --warn-soft:#2e2316;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;padding-block:0 0;margin:0}
+.wrap{max-width:620px;margin:0 auto;padding:20px 16px 0}
+h1{font-family:var(--display);font-weight:600;font-size:1.32rem;line-height:1.25;margin:0 0 6px;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:.86rem;margin:0 0 18px}
+.sub b{color:var(--ink);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.eyebrow{font-size:.68rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:430px){.grid{grid-template-columns:1fr 1fr}}
+label.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+label.f span{font-size:.76rem;color:var(--muted);font-weight:500}
+input[type=number],select{font-family:var(--body);font-size:1rem;font-variant-numeric:tabular-nums;
+  background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:9px;
+  padding:9px 10px;width:100%;min-width:0;appearance:none}
+input[type=number]:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+select{background-image:none}
+.full{margin-top:12px}
+.hint{font-size:.74rem;color:var(--muted);margin:8px 0 0}
+
+.rows{display:flex;flex-direction:column;gap:2px}
+.row{display:grid;grid-template-columns:22px 1fr auto;gap:10px;align-items:start;
+  padding:9px 8px;border-radius:9px;position:relative}
+.row:hover{background:var(--surface-2)}
+.row.off .nm,.row.off .amt{opacity:.38}
+.row.locked{opacity:.55}
+.row input[type=checkbox]{width:17px;height:17px;margin:3px 0 0;accent-color:var(--accent);cursor:pointer}
+.nm{min-width:0}
+.nm .q{font-size:.68rem;color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.nm .t{font-size:.9rem;font-weight:500;display:block}
+.nm .r{font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.amt{font-variant-numeric:tabular-nums;font-weight:600;font-size:.95rem;text-align:right;white-space:nowrap;padding-top:1px}
+.bar{grid-column:2/4;height:3px;border-radius:2px;background:var(--accent);opacity:.3;margin-top:4px}
+.tag{display:inline-block;font-size:.66rem;font-weight:600;padding:1px 6px;border-radius:5px;
+  background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:1px}
+.tag.cap{background:var(--accent-soft);color:var(--accent-ink)}
+.grp{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  font-weight:600;margin:14px 0 2px;padding:0 8px}
+.grp:first-child{margin-top:0}
+
+.totbar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+  margin-top:8px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));z-index:5}
+.totin{max-width:620px;margin:0 auto;display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
+.totin .lb{font-size:.74rem;color:var(--muted);font-weight:500;display:block;margin-bottom:1px}
+.big{font-family:var(--display);font-weight:600;font-size:1.5rem;font-variant-numeric:tabular-nums;line-height:1.1;letter-spacing:-.02em}
+.sm{font-variant-numeric:tabular-nums;font-weight:600;font-size:1.02rem;text-align:right}
+.year{font-size:.76rem;color:var(--muted);text-align:right;margin-top:3px;font-variant-numeric:tabular-nums}
+
+details{border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-bottom:14px;overflow:hidden}
+summary{padding:13px 16px;cursor:pointer;font-weight:600;font-size:.88rem;list-style:none;display:flex;justify-content:space-between;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--muted);font-weight:500}
+details[open] summary::after{content:"−"}
+.dbody{padding:0 16px 16px;border-top:1px solid var(--line);padding-top:14px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.84rem}
+.kv:last-child{border-bottom:none}
+.kv b{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+button.p{font-family:var(--body);font-size:.8rem;font-weight:600;padding:7px 12px;border-radius:999px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+button.p:hover{border-color:var(--accent);color:var(--accent-ink)}
+button.p:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+footer{color:var(--muted);font-size:.74rem;padding:16px 0 26px;line-height:1.55}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <h1>Сколько вы заплатите после ОСС</h1>
+  <p class="sub">Пр-кт Куприна, д. 9, корп. 2 (Коммунарка). Расчёт по 35 вопросам повестки внеочередного общего собрания и тарифам Москвы, действующим на <b>октябрь 2026</b>.</p>
+
+  <div class="card">
+    <p class="eyebrow">Ваши помещения</p>
+    <div class="grid">
+      <label class="f"><span>Квартира, м²</span><input type="number" id="sFlat" value="76.5" min="0" step="0.1" inputmode="decimal"></label>
+      <label class="f"><span>Машино-место, м²</span><input type="number" id="sPark" value="13.25" min="0" step="0.05" inputmode="decimal"></label>
+      <label class="f"><span>Кладовка, м²</span><input type="number" id="sStore" value="3.5" min="0" step="0.1" inputmode="decimal"></label>
+    </div>
+    <label class="f full"><span>Отделка квартиры — от неё зависит вывоз строительного мусора</span>
+      <select id="finish">
+        <option value="54">Без отделки — 54,00 ₽/м²</option>
+        <option value="22">White Box — 22,00 ₽/м²</option>
+        <option value="10.16">Дизайнерская отделка — 10,16 ₽/м²</option>
+      </select>
+    </label>
+    <p class="hint">Площади — без балконов и лоджий, как указано в бюллетене. Площадь квартиры 76,5 м² подставлена из вашего бланка; машино-место и кладовка — пример, замените своими или поставьте 0.</p>
+  </div>
+
+  <div class="btns">
+    <button class="p" id="bAll" type="button">Отметить всё</button>
+    <button class="p" id="bMin" type="button">Только обязательное</button>
+    <button class="p" id="bReset" type="button">Как в бюллетене</button>
+  </div>
+
+  <div class="card">
+    <p class="eyebrow">Вопросы повестки с платой</p>
+    <div class="rows" id="rows"></div>
+  </div>
+
+  <details>
+    <summary><span>Ставки, не указанные в бюллетене цифрами</span></summary>
+    <div class="dbody">
+      <label class="f"><span>Содержание и ремонт, ₽/м² в месяц (вопрос 4)</span><input type="number" id="rSod" value="47.73" min="0" step="0.01" inputmode="decimal"></label>
+      <label class="f full"><span>Минимальный взнос на капремонт, ₽/м² в месяц (вопрос 26)</span><input type="number" id="rCap" value="32.63" min="0" step="0.01" inputmode="decimal"></label>
+      <p class="hint">По умолчанию: 47,73 ₽/м² — цена содержания жилого помещения для дома со всеми удобствами, с лифтом, без мусоропровода (пост. Правительства Москвы № 2902-ПП от 26.11.2025, действует с 01.01.2026); 32,63 ₽/м² — минимальный взнос на капремонт в Москве с 01.01.2026. Октябрьская индексация 2026 года коснулась только коммунальных ресурсов, эти две ставки не изменила. Если у дома есть мусоропровод — поставьте 52,89.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary><span>Что в расчёт не входит</span></summary>
+    <div class="dbody">
+      <p style="margin:0 0 10px;font-size:.84rem;color:var(--muted)">Вопросы 6, 17 и 18 переводят коммунальные ресурсы на прямые договоры и на расчёт по общедомовому прибору учёта. Это оплачивается отдельно по счётчикам, тарифы Москвы с 01.10.2026:</p>
+      <div class="kv"><span>Холодная вода</span><b>73,79 ₽/м³</b></div>
+      <div class="kv"><span>Горячая вода</span><b>377,80 ₽/м³</b></div>
+      <div class="kv"><span>Водоотведение</span><b>60,24 ₽/м³</b></div>
+      <div class="kv"><span>Электроэнергия (эл. плита, одноставочный)</span><b>8,90 ₽/кВт·ч</b></div>
+      <div class="kv"><span>Отопление</span><b>3 374,46 ₽/Гкал</b></div>
+      <p class="hint">Также вне расчёта: вопросы 1–3, 19–25, 27–29, 31–35 — они про способ управления, выбор УК, спецсчёт, зарядные станции и порядок проведения собраний, отдельной платы не создают.</p>
+    </div>
+  </details>
+
+  <footer id="foot"></footer>
+</div>
+
+<div class="totbar">
+  <div class="totin">
+    <div>
+      <span class="lb">В месяц, первые 12 месяцев</span>
+      <div class="big" id="tNow">—</div>
+    </div>
+    <div>
+      <span class="lb">Далее, в месяц</span>
+      <div class="sm" id="tAfter">—</div>
+      <div class="year" id="tYear"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) { try { tg.ready(); tg.expand();
+    if (tg.colorScheme) document.documentElement.setAttribute('data-theme', tg.colorScheme);
+  } catch(e){} }
+
+  // base: 'all' — жилое/нежилое помещение + машино-место; 'park' — только машино-место;
+  // 'unit' — фиксировано с квартиры; 'finish' — площадь квартиры по ставке отделки
+  var ITEMS = [
+    {q:4,  g:'Жилищная услуга', t:'Содержание и ремонт общего имущества', base:'all', rate:'sod', fixed:true},
+    {q:5,  g:'Дополнительные услуги', t:'Пакет «Бизнес»', base:'all', rate:24.71},
+    {q:7,  g:'Дополнительные услуги', t:'Уборка машино-мест', base:'park', rate:19.00},
+    {q:8,  g:'Дополнительные услуги', t:'Видеонаблюдение — техобслуживание', base:'all', rate:3.50},
+    {q:9,  g:'Дополнительные услуги', t:'Доступ к видеопотокам с 36 камер', base:'unit', rate:200.00, needs:8},
+    {q:10, g:'Дополнительные услуги', t:'Обслуживание системы учёта ресурсов (АИИС)', base:'all', rate:1.80},
+    {q:11, g:'Дополнительные услуги', t:'Контроль доступа (СКУД)', base:'all', rate:4.50},
+    {q:12, g:'Дополнительные услуги', t:'Мобильное управление домофоном', base:'all', rate:4.04, needs:11},
+    {q:13, g:'Дополнительные услуги', t:'Содержание придомовой территории', base:'all', rate:20.98},
+    {q:14, g:'Дополнительные услуги', t:'Охрана', base:'all', rate:26.25},
+    {q:15, g:'Дополнительные услуги', t:'Консьерж-сервис в лобби', base:'all', rate:14.10},
+    {q:16, g:'Временная плата', t:'Вывоз строительного мусора', base:'finish', rate:0, months12:true},
+    {q:26, g:'Капитальный ремонт', t:'Взнос на капитальный ремонт', base:'all', rate:'cap', fixed:true},
+    {q:30, g:'Капитальный ремонт', t:'Ведение спецсчёта — 2% от взноса', base:'pct', rate:0.02, needs:26}
+  ];
+  var state = {};
+  ITEMS.forEach(function(i){ state[i.q] = true; });
+
+  var $ = function(id){ return document.getElementById(id); };
+  var fmt = function(v){ return v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' ₽'; };
+  var num = function(id){ var v = parseFloat($(id).value); return isFinite(v) && v > 0 ? v : 0; };
+
+  function calc(){
+    var f = num('sFlat'), p = num('sPark'), s = num('sStore');
+    var all = f + p + s;
+    var rates = { sod: num('rSod'), cap: num('rCap') };
+    var finishRate = parseFloat($('finish').value) || 0;
+    var out = [], capAmount = 0;
+
+    ITEMS.forEach(function(i){
+      var rate = typeof i.rate === 'string' ? rates[i.rate] : i.rate;
+      var amount = 0, unit = '';
+      if (i.base === 'all')        { amount = rate * all; unit = fmt2(rate) + ' ₽/м² × ' + fmt2(all) + ' м²'; }
+      else if (i.base === 'park')  { amount = rate * p;   unit = fmt2(rate) + ' ₽/м² × ' + fmt2(p) + ' м² машино-места'; }
+      else if (i.base === 'unit')  { amount = rate;       unit = fmt2(rate) + ' ₽ с квартиры'; }
+      else if (i.base === 'finish'){ amount = finishRate * f; unit = fmt2(finishRate) + ' ₽/м² × ' + fmt2(f) + ' м² квартиры'; }
+      else if (i.base === 'pct')   { amount = capAmount * rate; unit = '2% от взноса на капремонт'; }
+      var blocked = i.needs && !state[i.needs];
+      var on = state[i.q] && !blocked;
+      if (i.q === 26) capAmount = on ? amount : 0;
+      out.push({ i:i, amount:amount, on:on, blocked:!!blocked, unit:unit });
+    });
+    // пересчёт 2% после того, как известен взнос
+    out.forEach(function(r){
+      if (r.i.base === 'pct'){ r.amount = capAmount * r.i.rate; }
+    });
+    return out;
+  }
+  function fmt2(v){ return v.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+  function render(){
+    var res = calc();
+    var max = 0;
+    res.forEach(function(r){ if (r.on && r.amount > max) max = r.amount; });
+
+    var html = '', lastG = '';
+    res.forEach(function(r){
+      if (r.i.g !== lastG){ html += '<div class="grp">' + r.i.g + '</div>'; lastG = r.i.g; }
+      var cls = 'row' + (r.on ? '' : ' off') + (r.blocked ? ' locked' : '');
+      var tag = r.i.months12 ? '<span class="tag">12 мес.</span>' : '';
+      if (r.i.g === 'Капитальный ремонт') tag = '<span class="tag cap">спецсчёт</span>';
+      var note = r.blocked ? ' — только вместе с вопросом ' + r.i.needs : '';
+      html += '<label class="' + cls + '">'
+        + '<input type="checkbox" data-q="' + r.i.q + '"' + (state[r.i.q] ? ' checked' : '') + (r.blocked ? ' disabled' : '') + '>'
+        + '<span class="nm"><span class="q">Вопрос ' + r.i.q + '</span>'
+        + '<span class="t">' + r.i.t + tag + '</span>'
+        + '<span class="r">' + r.unit + note + '</span></span>'
+        + '<span class="amt">' + fmt(r.on ? r.amount : 0) + '</span>'
+        + (r.on && max > 0 ? '<span class="bar" style="width:' + Math.max(2, r.amount / max * 100) + '%"></span>' : '')
+        + '</label>';
+    });
+    $('rows').innerHTML = html;
+
+    var after = 0, temp = 0;
+    res.forEach(function(r){
+      if (!r.on) return;
+      if (r.i.months12) temp += r.amount; else after += r.amount;
+    });
+    $('tNow').textContent = fmt(after + temp);
+    $('tAfter').textContent = fmt(after);
+    $('tYear').textContent = 'за первый год ' + fmt((after + temp) * 12);
+
+    var f = num('sFlat'), p = num('sPark'), s = num('sStore');
+    $('foot').innerHTML = 'Расчёт по площади ' + fmt2(f + p + s) + ' м² (квартира ' + fmt2(f)
+      + ' + машино-место ' + fmt2(p) + ' + кладовка ' + fmt2(s) + ').<br>'
+      + 'Ставки вопросов 5–16 — прямо из бюллетеня. По вопросам 5, 7–16 управляющая организация вправе ежегодно индексировать плату в пределах ИПЦ и увеличивать её на величину налоговой ставки при изменении системы налогообложения, поэтому со второго года суммы будут выше. Это оценка, а не платёжный документ.';
+  }
+
+  document.addEventListener('change', function(e){
+    var q = e.target.getAttribute && e.target.getAttribute('data-q');
+    if (q) { state[q] = e.target.checked; render(); return; }
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') render();
+  });
+  document.addEventListener('input', function(e){
+    if (e.target.tagName === 'INPUT' && e.target.type === 'number') render();
+  });
+
+  $('bAll').onclick = function(){ ITEMS.forEach(function(i){ state[i.q] = true; }); render(); };
+  $('bMin').onclick = function(){ ITEMS.forEach(function(i){ state[i.q] = (i.q === 4 || i.q === 26 || i.q === 30); }); render(); };
+  $('bReset').onclick = function(){
+    ITEMS.forEach(function(i){ state[i.q] = true; });
+    $('sFlat').value = 76.5; $('sPark').value = 13.25; $('sStore').value = 3.5;
+    $('finish').value = '54'; $('rSod').value = 47.73; $('rCap').value = 32.63;
+    render();
+  };
+
+  render();
+})();
+</script>
+
+</body>
+</html>
